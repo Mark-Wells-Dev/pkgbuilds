@@ -36,7 +36,7 @@ jobs:
         id: changes
         run: |
           # Auto-detect all packages (directories containing PKGBUILD)
-          ALL_PACKAGES=$(find . -maxdepth 2 -name PKGBUILD -printf '%h\n' | sed 's|^\./||' | sort)
+          ALL_PACKAGES=$(find . -maxdepth 2 -name PKGBUILD -printf '%h\n' | sed 's|^\./||' | sort | tr '\n' ' ' | xargs)
           echo "All packages: $ALL_PACKAGES"
           echo "all=$ALL_PACKAGES" >> $GITHUB_OUTPUT
 
