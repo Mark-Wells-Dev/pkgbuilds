@@ -57,30 +57,23 @@ jobs:
           cd repo
           repo-add --sign --key ${{ secrets.GPG_KEY_ID }} m-wells.db.tar.gz *.pkg.tar.zst
 
-      - name: Upload repo artifacts
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
-        with:
-          name: repo
-          path: repo/*
-
-  release:
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download repo artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: repo
-          path: repo
-
       - name: Delete existing release
-        run: gh release delete latest --repo ${{ github.repository }} --yes --cleanup-tag || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          # Get release ID and delete if exists
+          RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/latest" | \
+            grep '"id":' | head -1 | grep -o '[0-9]*')
+          if [ -n "$RELEASE_ID" ]; then
+            curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID"
+            # Delete the tag too
+            curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/latest" || true
+          fi
 
       - name: Upload to release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
