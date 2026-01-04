@@ -135,11 +135,13 @@ jobs:
       - name: Delete outdated assets
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
+          pacman -S --noconfirm jq
+
           # Get release info
           RELEASE_DATA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/releases/tags/latest")
 
-          RELEASE_ID=$(echo "$RELEASE_DATA" | grep '"id":' | head -1 | grep -o '[0-9]*' || echo "")
+          RELEASE_ID=$(echo "$RELEASE_DATA" | jq -r '.id // empty')
 
           if [ -z "$RELEASE_ID" ]; then
             echo "No existing release found"
@@ -148,14 +150,12 @@ jobs:
 
           echo "Found release ID: $RELEASE_ID"
 
-          # Get list of files we're about to upload
-          NEW_FILES=$(ls repo/)
-
           # Delete assets that will be replaced
-          for file in $NEW_FILES; do
-            ASSET_ID=$(echo "$RELEASE_DATA" | grep -B1 "\"name\": \"$file\"" | grep '"id":' | grep -o '[0-9]*' || echo "")
+          for file in repo/*; do
+            filename=$(basename "$file")
+            ASSET_ID=$(echo "$RELEASE_DATA" | jq -r --arg name "$filename" '.assets[] | select(.name == $name) | .id // empty')
             if [ -n "$ASSET_ID" ]; then
-              echo "Deleting old asset: $file (ID: $ASSET_ID)"
+              echo "Deleting old asset: $filename (ID: $ASSET_ID)"
               curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                 "https://api.github.com/repos/${{ github.repository }}/releases/assets/$ASSET_ID"
             fi
