@@ -22,7 +22,7 @@ jobs:
         run: |
           # Update system and install dependencies
           pacman -Syu --noconfirm
-          pacman -S --noconfirm npm fuse2 zlib
+          pacman -S --noconfirm jq npm fuse2 zlib
 
           # Create non-root builder user
           useradd -m builder
@@ -147,8 +147,6 @@ jobs:
       - name: Delete outdated assets
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          pacman -S --noconfirm jq
-
           # Get release info
           RELEASE_DATA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/releases/tags/latest")
