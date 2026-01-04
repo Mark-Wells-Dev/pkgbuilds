@@ -156,8 +156,10 @@ jobs:
             ASSET_ID=$(echo "$RELEASE_DATA" | jq -r --arg name "$filename" '.assets[] | select(.name == $name) | .id // empty')
             if [ -n "$ASSET_ID" ]; then
               echo "Deleting old asset: $filename (ID: $ASSET_ID)"
-              curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                "https://api.github.com/repos/${{ github.repository }}/releases/assets/$ASSET_ID"
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/releases/assets/$ASSET_ID")
+              echo "  Delete response: $HTTP_CODE"
             fi
           done
 
