@@ -24,7 +24,7 @@ jobs:
         run: |
           # Update system and install dependencies
           pacman -Syu --noconfirm
-          pacman -S --noconfirm npm fuse2 zlib
+          pacman -S --noconfirm git npm fuse2 zlib
 
           # Create non-root builder user
           useradd -m builder
