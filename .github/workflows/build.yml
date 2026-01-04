@@ -57,6 +57,14 @@ jobs:
           cd repo
           repo-add --sign --key ${{ secrets.GPG_KEY_ID }} m-wells.db.tar.gz *.pkg.tar.zst
 
+      - name: Delete existing release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          pacman -S --noconfirm github-cli
+          gh release delete latest --yes --cleanup-tag || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload to release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
