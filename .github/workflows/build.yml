@@ -57,16 +57,30 @@ jobs:
           cd repo
           repo-add --sign --key ${{ secrets.GPG_KEY_ID }} m-wells.db.tar.gz *.pkg.tar.zst
 
-      - name: Delete existing release
+      - name: Upload repo artifacts
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          pacman -S --noconfirm github-cli
-          gh release delete latest --yes --cleanup-tag || true
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo
+          path: repo/*
+
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download repo artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: repo
+          path: repo
+
+      - name: Delete existing release
+        run: gh release delete latest --repo ${{ github.repository }} --yes --cleanup-tag || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload to release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
