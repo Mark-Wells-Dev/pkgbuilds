@@ -6,6 +6,14 @@
   "automerge": true,
   "automergeType": "pr",
   "platformAutomerge": true,
+  "postUpgradeTasks": {
+    "commands": [
+      "sed -i 's/pkgrel=.*/pkgrel=1/' {{{packageFile}}}",
+      "cd $(dirname {{{packageFile}}}) && updpkgsums"
+    ],
+    "fileFilters": ["**/PKGBUILD"],
+    "executionMode": "update"
+  },
   "customManagers": [
     {
       "customType": "regex",
