@@ -2,7 +2,7 @@
 pkgname=rpi-imager
 pkgver=2.0.3
 # renovate: datasource=github-releases depName=raspberrypi/rpi-imager
-pkgrel=6
+pkgrel=7
 pkgdesc="Raspberry Pi Imaging Utility (AppImage)"
 arch=('x86_64')
 url="https://github.com/raspberrypi/rpi-imager"
@@ -22,10 +22,23 @@ package() {
   install -Dm755 "${srcdir}/Raspberry_Pi_Imager-v${pkgver}-desktop-x86_64.AppImage" \
     "${pkgdir}/opt/${pkgname}/${pkgname}.AppImage"
 
+  # Create xdg-open wrapper (handles opening URLs as the original user when running as root)
+  install -dm755 "${pkgdir}/opt/${pkgname}/bin"
+  cat > "${pkgdir}/opt/${pkgname}/bin/xdg-open" << 'EOF'
+#!/bin/sh
+if [ "$(id -u)" = "0" ] && [ -n "$PKEXEC_UID" ]; then
+  sudo -u "#$PKEXEC_UID" /usr/bin/xdg-open "$@"
+else
+  /usr/bin/xdg-open "$@"
+fi
+EOF
+  chmod 755 "${pkgdir}/opt/${pkgname}/bin/xdg-open"
+
   # Create launcher script (uses pkexec for privilege elevation)
   install -dm755 "${pkgdir}/usr/bin"
   cat > "${pkgdir}/usr/bin/${pkgname}" << 'EOF'
 #!/bin/sh
+export PATH="/opt/rpi-imager/bin:$PATH"
 pkexec --disable-internal-agent /opt/rpi-imager/rpi-imager.AppImage "$@"
 EOF
   chmod 755 "${pkgdir}/usr/bin/${pkgname}"
