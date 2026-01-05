@@ -34,6 +34,14 @@ sudo pacman -S gemini-cli rpi-imager
 - **Packages are signed** with GPG and published to GitHub Releases
 - **pacman** syncs directly from the release assets
 
+### CI Details
+
+- Only changed packages are rebuilt (detected via GitHub API)
+- Deleted packages are automatically removed from the repo database
+- Old package versions are cleaned up when new versions are uploaded
+- If a build fails, remaining packages continue building; successful packages are still released
+- **Force rebuild all**: Use Actions → "Run workflow" → check "Rebuild all packages"
+
 ## Adding a New Package
 
 1. Create a directory with a `PKGBUILD` (directory name must match `pkgname`):
