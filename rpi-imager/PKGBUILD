@@ -2,7 +2,7 @@
 pkgname=rpi-imager
 pkgver=2.0.3
 # renovate: datasource=github-releases depName=raspberrypi/rpi-imager
-pkgrel=7
+pkgrel=8
 pkgdesc="Raspberry Pi Imaging Utility (AppImage)"
 arch=('x86_64')
 url="https://github.com/raspberrypi/rpi-imager"
@@ -34,12 +34,19 @@ fi
 EOF
   chmod 755 "${pkgdir}/opt/${pkgname}/bin/xdg-open"
 
+  # Create runner script (sets PATH for xdg-open wrapper)
+  cat > "${pkgdir}/opt/${pkgname}/run.sh" << 'EOF'
+#!/bin/sh
+export PATH="/opt/rpi-imager/bin:$PATH"
+exec /opt/rpi-imager/rpi-imager.AppImage "$@"
+EOF
+  chmod 755 "${pkgdir}/opt/${pkgname}/run.sh"
+
   # Create launcher script (uses pkexec for privilege elevation)
   install -dm755 "${pkgdir}/usr/bin"
   cat > "${pkgdir}/usr/bin/${pkgname}" << 'EOF'
 #!/bin/sh
-export PATH="/opt/rpi-imager/bin:$PATH"
-pkexec --disable-internal-agent /opt/rpi-imager/rpi-imager.AppImage "$@"
+pkexec --disable-internal-agent /opt/rpi-imager/run.sh "$@"
 EOF
   chmod 755 "${pkgdir}/usr/bin/${pkgname}"
 
@@ -58,9 +65,9 @@ EOF
   install -Dm644 squashfs-root/usr/share/icons/hicolor/scalable/apps/rpi-imager.svg \
     "${pkgdir}/usr/share/icons/hicolor/scalable/apps/${pkgname}.svg"
 
-  # Install polkit policy for privilege elevation (with fixed path for AppImage)
+  # Install polkit policy for privilege elevation (with fixed path for runner script)
   install -Dm644 "${srcdir}/com.raspberrypi.rpi-imager.policy" \
     "${pkgdir}/usr/share/polkit-1/actions/com.raspberrypi.rpi-imager.policy"
-  sed -i 's|/usr/bin/rpi-imager|/opt/rpi-imager/rpi-imager.AppImage|g' \
+  sed -i 's|/usr/bin/rpi-imager|/opt/rpi-imager/run.sh|g' \
     "${pkgdir}/usr/share/polkit-1/actions/com.raspberrypi.rpi-imager.policy"
 }
