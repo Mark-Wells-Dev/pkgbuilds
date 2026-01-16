@@ -1,7 +1,7 @@
 # Maintainer: Mark Wells <m-wells>
 # Packaged from npm
 pkgname=gemini-cli
-pkgver=0.24.2
+pkgver=0.24.0
 # renovate: datasource=npm depName=@google/gemini-cli
 pkgrel=1
 epoch=1
@@ -14,7 +14,7 @@ makedepends=('npm')
 options=('!strip' '!debug' '!lto')
 source=("https://registry.npmjs.org/@google/gemini-cli/-/${pkgname}-${pkgver}.tgz")
 noextract=("${pkgname}-${pkgver}.tgz")
-sha256sums=('e83c821b5b0521f2932c2c2c639a8ff4f4774f64586f8bdd4a691108bfb4dec3')
+sha256sums=('10908307b711b7dac287b07ce54093dac02d7446f9d357f83da2c24778cefde8')
 
 package() {
   npm install -g --prefix "${pkgdir}/usr" \
