@@ -1,8 +1,8 @@
 # Maintainer: Mark Wells <m-wells>
 pkgname=rpi-imager
-pkgver=2.0.3
+pkgver=2.0.4
 # renovate: datasource=github-releases depName=raspberrypi/rpi-imager
-pkgrel=11
+pkgrel=1
 pkgdesc="Raspberry Pi Imaging Utility (AppImage)"
 arch=('x86_64')
 url="https://github.com/raspberrypi/rpi-imager"
@@ -13,7 +13,7 @@ conflicts=('rpi-imager')
 options=('!strip' '!debug')
 source=("Raspberry_Pi_Imager-v${pkgver}-desktop-x86_64.AppImage::https://github.com/raspberrypi/rpi-imager/releases/download/v${pkgver}/Raspberry_Pi_Imager-v${pkgver}-desktop-x86_64.AppImage"
         "com.raspberrypi.rpi-imager.policy::https://raw.githubusercontent.com/raspberrypi/rpi-imager/v${pkgver}/debian/com.raspberrypi.rpi-imager.policy")
-sha256sums=('df1f22628d4a9e0c5cf404dc48cbd31fd38a1b676d70505e23a7c866b24935ab'
+sha256sums=('f91d031b63cb9e8d521fc2a4cc3703e1f20207af9fd915d6313e718b8b32d7a5' 'f998b4c8da419da3a453a3b8992397fb4b8687b7155eda1c79aa0d7a0eb4e524')
             'f998b4c8da419da3a453a3b8992397fb4b8687b7155eda1c79aa0d7a0eb4e524')
 noextract=("Raspberry_Pi_Imager-v${pkgver}-desktop-x86_64.AppImage")
 
