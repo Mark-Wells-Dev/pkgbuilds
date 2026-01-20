@@ -91,13 +91,26 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p repo
-          gh release download latest --repo ${{ github.repository }} --pattern 'm-wells.db.tar.gz' --dir repo || echo "No existing database"
-          gh release download latest --repo ${{ github.repository }} --pattern 'm-wells.files.tar.gz' --dir repo || true
+          # Try downloading new DB name, fallback to old name and rename
+          if ! gh release download latest --repo ${{ github.repository }} --pattern 'mark-wells-dev.db.tar.gz' --dir repo; then
+            echo "New DB not found, trying legacy 'm-wells.db'..."
+            if gh release download latest --repo ${{ github.repository }} --pattern 'm-wells.db.tar.gz' --dir repo; then
+              mv repo/m-wells.db.tar.gz repo/mark-wells-dev.db.tar.gz
+              # Also try to get the files db if it exists
+              if gh release download latest --repo ${{ github.repository }} --pattern 'm-wells.files.tar.gz' --dir repo; then
+                mv repo/m-wells.files.tar.gz repo/mark-wells-dev.files.tar.gz
+              fi
+            else
+              echo "No existing database found (neither new nor legacy)."
+            fi
+          else
+            gh release download latest --repo ${{ github.repository }} --pattern 'mark-wells-dev.files.tar.gz' --dir repo || true
+          fi
 
           # Detect deleted packages
           REMOVED=""
-          if [ -f repo/m-wells.db.tar.gz ]; then
-            DB_PACKAGES=$(tar -tzf repo/m-wells.db.tar.gz | grep -oP '^[^/]+(?=/)' | sed 's/-[^-]*-[^-]*$//' | sort -u)
+          if [ -f repo/mark-wells-dev.db.tar.gz ]; then
+            DB_PACKAGES=$(tar -tzf repo/mark-wells-dev.db.tar.gz | grep -oP '^[^/]+(?=/)' | sed 's/-[^-]*-[^-]*$//' | sort -u)
             for dbpkg in $DB_PACKAGES; do
               if ! echo "${{ steps.changes.outputs.all }}" | grep -qw "$dbpkg"; then
                 REMOVED="$REMOVED $dbpkg"
@@ -123,7 +136,7 @@ jobs:
         if: steps.database.outputs.removed != ''
         run: |
           echo "Removing deleted packages:${{ steps.database.outputs.removed }}"
-          repo-remove --sign --key ${{ secrets.GPG_KEY_ID }} repo/m-wells.db.tar.gz ${{ steps.database.outputs.removed }}
+          repo-remove --sign --key ${{ secrets.GPG_KEY_ID }} repo/mark-wells-dev.db.tar.gz ${{ steps.database.outputs.removed }}
 
       - name: Build changed packages
         id: build
@@ -191,7 +204,7 @@ jobs:
           # Update repo database
           cd repo
           if ls *.pkg.tar.zst 1>/dev/null 2>&1; then
-            repo-add --sign --key ${{ secrets.GPG_KEY_ID }} m-wells.db.tar.gz *.pkg.tar.zst
+            repo-add --sign --key ${{ secrets.GPG_KEY_ID }} mark-wells-dev.db.tar.gz *.pkg.tar.zst
           fi
 
       - name: Upload to release
@@ -222,6 +235,14 @@ jobs:
                 gh release delete-asset latest "$asset" --repo ${{ github.repository }} --yes
               done
           done
+          
+          # Clean up legacy DB files if they exist in the release
+          echo "Cleaning up legacy database files..."
+          gh release view latest --repo ${{ github.repository }} --json assets -q '.assets[].name' | \
+            grep -E '^(m-wells\.db|m-wells\.files)' | while read -r asset; do
+              echo "Deleting legacy asset: $asset"
+              gh release delete-asset latest "$asset" --repo ${{ github.repository }} --yes
+            done
 
           # Upload files
           gh release upload latest repo/* --repo ${{ github.repository }} --clobber
