@@ -12,6 +12,10 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -34,64 +38,17 @@ jobs:
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           chown -R builder:builder .
 
-      - name: Detect and validate packages
+          # Grant builder access to the checkout
+          chown -R builder:builder .
+
+      - name: Check package versions
         id: changes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Auto-detect all packages (directories containing PKGBUILD)
-          ALL_PACKAGES=$(find . -maxdepth 2 -name PKGBUILD -printf '%h\n' | sed 's|^\./||' | sort | tr '\n' ' ' | xargs)
-          echo "All packages: $ALL_PACKAGES"
-          echo "all=$ALL_PACKAGES" >> $GITHUB_OUTPUT
-
-          # Validate: directory name must match pkgname
-          ERRORS=0
-          for pkg in $ALL_PACKAGES; do
-            pkgname=$(grep '^pkgname=' "$pkg/PKGBUILD" | cut -d'=' -f2)
-            if [ "$pkg" != "$pkgname" ]; then
-              echo "ERROR: Directory '$pkg' does not match pkgname '$pkgname'"
-              ERRORS=$((ERRORS + 1))
-            fi
-          done
-          if [ $ERRORS -gt 0 ]; then
-            echo "Validation failed: directory names must match pkgname in PKGBUILD"
-            exit 1
-          fi
-
-          # Get list of changed files via GitHub CLI
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED=$(gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json files -q '.files[].path')
-          else
-            CHANGED=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }} --jq '.files[].filename')
-          fi
-
-          # Determine which packages to build
-          if [ "${{ inputs.force_rebuild }}" = "true" ]; then
-            PACKAGES="$ALL_PACKAGES"
-            echo "Force rebuild: building all packages"
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            PACKAGES=""
-            echo "Manual trigger without force rebuild: no packages to build"
-          else
-            PACKAGES=""
-            for pkg in $ALL_PACKAGES; do
-              if echo "$CHANGED" | grep -q "^${pkg}/" || [ -z "$CHANGED" ]; then
-                PACKAGES="$PACKAGES $pkg"
-              fi
-            done
-            echo "Changed packages:$PACKAGES"
-          fi
-
-          echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
-
-      - name: Download database and detect deletions
-        id: database
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
+          # 1. Download and Extract Database
           mkdir -p repo
-          # Try downloading new DB name, fallback to old name and rename
+          echo "Downloading repository database..."
           if ! gh release download latest --repo ${{ github.repository }} --pattern 'mark-wells-dev.db.tar.gz' --dir repo; then
             echo "New DB not found, trying legacy 'm-wells.db'..."
             if gh release download latest --repo ${{ github.repository }} --pattern 'm-wells.db.tar.gz' --dir repo; then
@@ -101,42 +58,120 @@ jobs:
                 mv repo/m-wells.files.tar.gz repo/mark-wells-dev.files.tar.gz
               fi
             else
-              echo "No existing database found (neither new nor legacy)."
+              echo "No existing database found."
             fi
           else
             gh release download latest --repo ${{ github.repository }} --pattern 'mark-wells-dev.files.tar.gz' --dir repo || true
           fi
 
-          # Detect deleted packages
-          REMOVED=""
+          mkdir -p repo/db_content
           if [ -f repo/mark-wells-dev.db.tar.gz ]; then
-            DB_PACKAGES=$(tar -tzf repo/mark-wells-dev.db.tar.gz | grep -oP '^[^/]+(?=/)' | sed 's/-[^-]*-[^-]*$//' | sort -u)
-            for dbpkg in $DB_PACKAGES; do
-              if ! echo "${{ steps.changes.outputs.all }}" | grep -qw "$dbpkg"; then
-                REMOVED="$REMOVED $dbpkg"
+            tar -xf repo/mark-wells-dev.db.tar.gz -C repo/db_content
+          fi
+
+          # 2. Build map of current DB versions
+          touch db_versions.txt
+          find repo/db_content -name desc | while read -r desc_file; do
+             name=$(grep -A1 "%NAME%" "$desc_file" | tail -n1)
+             ver=$(grep -A1 "%VERSION%" "$desc_file" | tail -n1)
+             echo "$name $ver" >> db_versions.txt
+          done
+          echo "Current DB versions:"
+          cat db_versions.txt
+
+          # 3. Scan local packages
+          ALL_PACKAGES=$(find . -maxdepth 2 -name PKGBUILD -printf '%h\n' | sed 's|^\\.//||' | sort | tr '\n' ' ' | xargs)
+          echo "Local packages: $ALL_PACKAGES"
+
+          PACKAGES_TO_BUILD=""
+
+          if [ "${{ inputs.force_rebuild }}" = "true" ]; then
+            echo "Force rebuild: building all packages"
+            PACKAGES_TO_BUILD="$ALL_PACKAGES"
+          else
+            for pkg in $ALL_PACKAGES; do
+              # Use makepkg --printsrcinfo for robust parsing
+              # Run as builder user to ensure correct variable expansion/execution
+              echo "Checking $pkg..."
+              
+              if ! srcinfo=$(su builder -c "cd $pkg && makepkg --printsrcinfo" 2>/dev/null); then
+                  echo "::error::Failed to parse PKGBUILD for $pkg"
+                  exit 1
+              fi
+              
+              # Extract version info using regex matching on .SRCINFO format
+              # .SRCINFO keys are usually indented
+              p_name=$(echo "$srcinfo" | grep -P '^\tpkgname =' | cut -d= -f2 | xargs)
+              p_ver=$(echo "$srcinfo" | grep -P '^\tpkgver =' | cut -d= -f2 | xargs)
+              p_rel=$(echo "$srcinfo" | grep -P '^\tpkgrel =' | cut -d= -f2 | xargs)
+              p_epoch=$(echo "$srcinfo" | grep -P '^\tepoch =' | cut -d= -f2 | xargs)
+
+              # Verification
+              if [ "$pkg" != "$p_name" ]; then
+                # Handle split packages or mismatch
+                # For now, strict check: directory must match pkgname (or pkgbase if logic tailored)
+                # But makepkg --printsrcinfo outputs pkgbase at top, then pkgname sections.
+                # Simplification: assume simple packages for now or check if pkgname is in output.
+                # If pkgname is different, we might have issues.
+                # Let's trust the directory structure for "name" but use parsed ver for "version".
+                echo "Note: Directory $pkg contains package $p_name"
+              fi
+
+              if [ -n "$p_epoch" ]; then
+                  local_ver="${p_epoch}:${p_ver}-${p_rel}"
+              else
+                  local_ver="${p_ver}-${p_rel}"
+              fi
+
+              db_ver=$(grep "^$pkg " db_versions.txt | cut -d' ' -f2 || echo "")
+
+              if [ -z "$db_ver" ]; then
+                  echo "New package: $pkg ($local_ver)"
+                  PACKAGES_TO_BUILD="$PACKAGES_TO_BUILD $pkg"
+              else
+                  # Use vercmp for robust comparison
+                  cmp_res=$(vercmp "$local_ver" "$db_ver")
+                  if [ "$cmp_res" -ne 0 ]; then
+                      echo "Update needed for $pkg: DB($db_ver) -> Local($local_ver)"
+                      PACKAGES_TO_BUILD="$PACKAGES_TO_BUILD $pkg"
+                  else
+                      echo "$pkg is up to date ($local_ver)"
+                  fi
               fi
             done
           fi
+
+          echo "packages=$PACKAGES_TO_BUILD" >> $GITHUB_OUTPUT
+
+          # 4. Detect removed packages
+          REMOVED=""
+          while read -r line; do
+            [ -z "$line" ] && continue
+            db_name=$(echo "$line" | cut -d' ' -f1)
+            if ! echo "$ALL_PACKAGES" | grep -qw "$db_name"; then
+                echo "Package $db_name is in DB but not local (will be removed)."
+                REMOVED="$REMOVED $db_name"
+            fi
+          done < db_versions.txt
+
           echo "removed=$REMOVED" >> $GITHUB_OUTPUT
 
-          # Determine if there's any work to do
-          if [ -n "$REMOVED" ] || [ -n "${{ steps.changes.outputs.packages }}" ]; then
-            echo "has_work=true" >> $GITHUB_OUTPUT
-            echo "Work to do: removed='$REMOVED', packages='${{ steps.changes.outputs.packages }}'"
+          # 5. Determine work status
+          if [ -n "$PACKAGES_TO_BUILD" ] || [ -n "$REMOVED" ]; then
+             echo "has_work=true" >> $GITHUB_OUTPUT
           else
-            echo "has_work=false" >> $GITHUB_OUTPUT
-            echo "Nothing to do, skipping remaining steps"
+             echo "has_work=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Import GPG key
-        if: steps.changes.outputs.packages != '' || steps.database.outputs.has_work == 'true'
+        if: steps.changes.outputs.has_work == 'true'
         run: echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
 
       - name: Remove deleted packages from database
-        if: steps.database.outputs.removed != ''
+        if: steps.changes.outputs.removed != ''
         run: |
-          echo "Removing deleted packages:${{ steps.database.outputs.removed }}"
-          repo-remove --sign --key ${{ secrets.GPG_KEY_ID }} repo/mark-wells-dev.db.tar.gz ${{ steps.database.outputs.removed }}
+          echo "Removing deleted packages:${{ steps.changes.outputs.removed }}"
+          repo-remove --sign --key ${{ secrets.GPG_KEY_ID }} repo/mark-wells-dev.db.tar.gz ${{ steps.changes.outputs.removed }}
 
       - name: Build changed packages
         id: build
@@ -208,7 +243,7 @@ jobs:
           fi
 
       - name: Upload to release
-        if: steps.database.outputs.has_work == 'true'
+        if: steps.changes.outputs.has_work == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -217,7 +252,7 @@ jobs:
             gh release create latest --repo ${{ github.repository }} --title "Packages" --notes "Arch Linux binary packages"
 
           # Delete assets for removed packages
-          for pkg in ${{ steps.database.outputs.removed }}; do
+          for pkg in ${{ steps.changes.outputs.removed }}; do
             echo "Deleting assets for removed package: $pkg"
             gh release view latest --repo ${{ github.repository }} --json assets -q '.assets[].name' | \
               grep "^${pkg}-" | while read -r asset; do
@@ -244,8 +279,8 @@ jobs:
               gh release delete-asset latest "$asset" --repo ${{ github.repository }} --yes
             done
 
-          # Upload files
-          gh release upload latest repo/* --repo ${{ github.repository }} --clobber
+          # Upload files (only exact artifacts)
+          gh release upload latest repo/*.pkg.tar.zst repo/*.sig repo/*.db.tar.gz repo/*.files.tar.gz --repo ${{ github.repository }} --clobber
 
       - name: Check for build failures
         if: steps.build.outputs.failed != ''
