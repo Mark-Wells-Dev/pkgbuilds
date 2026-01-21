@@ -11,6 +11,10 @@ on:
         description: 'Rebuild all packages'
         type: boolean
         default: false
+      fix_signatures:
+        description: 'Fix database signatures without rebuilding'
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -49,12 +53,12 @@ jobs:
           # 1. Download and Extract Database
           mkdir -p repo
           echo "Downloading repository database..."
-          if ! gh release download latest --repo ${{ github.repository }} --pattern 'mark-wells-dev.db.tar.gz' --dir repo; then
+          if ! gh release download latest --repo ${{ github.repository }} --pattern 'mark-wells-dev.db.tar.gz' --dir repo;
             echo "New DB not found, trying legacy 'm-wells.db'..."
-            if gh release download latest --repo ${{ github.repository }} --pattern 'm-wells.db.tar.gz' --dir repo; then
+            if gh release download latest --repo ${{ github.repository }} --pattern 'm-wells.db.tar.gz' --dir repo;
               mv repo/m-wells.db.tar.gz repo/mark-wells-dev.db.tar.gz
               # Also try to get the files db if it exists
-              if gh release download latest --repo ${{ github.repository }} --pattern 'm-wells.files.tar.gz' --dir repo; then
+              if gh release download latest --repo ${{ github.repository }} --pattern 'm-wells.files.tar.gz' --dir repo;
                 mv repo/m-wells.files.tar.gz repo/mark-wells-dev.files.tar.gz
               fi
             else
@@ -80,7 +84,7 @@ jobs:
           cat db_versions.txt
 
           # 3. Scan local packages
-          ALL_PACKAGES=$(find . -maxdepth 2 -name PKGBUILD -printf '%h\n' | sed 's|^\\.//||' | sort | tr '\n' ' ' | xargs)
+          ALL_PACKAGES=$(find . -maxdepth 2 -name PKGBUILD -printf '%h\n' | sed 's|^\./||' | sort | tr '\n' ' ' | xargs)
           echo "Local packages: $ALL_PACKAGES"
 
           PACKAGES_TO_BUILD=""
@@ -164,7 +168,7 @@ jobs:
           fi
 
       - name: Import GPG key
-        if: steps.changes.outputs.has_work == 'true'
+        if: steps.changes.outputs.has_work == 'true' || inputs.fix_signatures == true
         run: echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
 
       - name: Remove deleted packages from database
@@ -240,10 +244,34 @@ jobs:
           cd repo
           if ls *.pkg.tar.zst 1>/dev/null 2>&1; then
             repo-add --sign --key ${{ secrets.GPG_KEY_ID }} mark-wells-dev.db.tar.gz *.pkg.tar.zst
+            
+            # Ensure signatures for legacy/symlink DB names exist
+            [ -f mark-wells-dev.db.tar.gz.sig ] && cp mark-wells-dev.db.tar.gz.sig mark-wells-dev.db.sig
+            [ -f mark-wells-dev.files.tar.gz.sig ] && cp mark-wells-dev.files.tar.gz.sig mark-wells-dev.files.sig
+          fi
+
+      - name: Fix DB Signatures
+        if: inputs.fix_signatures == true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Downloading existing DB signatures..."
+          # We need the .tar.gz.sig which is valid
+          gh release download latest --repo ${{ github.repository }} --pattern 'mark-wells-dev.db.tar.gz.sig' --dir repo || true
+          gh release download latest --repo ${{ github.repository }} --pattern 'mark-wells-dev.files.tar.gz.sig' --dir repo || true
+
+          cd repo
+          if [ -f mark-wells-dev.db.tar.gz.sig ]; then
+             echo "Copying mark-wells-dev.db.tar.gz.sig to mark-wells-dev.db.sig"
+             cp mark-wells-dev.db.tar.gz.sig mark-wells-dev.db.sig
+          fi
+          if [ -f mark-wells-dev.files.tar.gz.sig ]; then
+             echo "Copying mark-wells-dev.files.tar.gz.sig to mark-wells-dev.files.sig"
+             cp mark-wells-dev.files.tar.gz.sig mark-wells-dev.files.sig
           fi
 
       - name: Upload to release
-        if: steps.changes.outputs.has_work == 'true'
+        if: steps.changes.outputs.has_work == 'true' || inputs.fix_signatures == true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -280,7 +308,7 @@ jobs:
             done
 
           # Upload files (only exact artifacts)
-          gh release upload latest repo/*.pkg.tar.zst repo/*.sig repo/*.db.tar.gz repo/*.files.tar.gz --repo ${{ github.repository }} --clobber
+          gh release upload latest repo/*.pkg.tar.zst repo/*.sig repo/*.db.tar.gz repo/*.files.tar.gz repo/*.db.sig repo/*.files.sig --repo ${{ github.repository }} --clobber
 
       - name: Check for build failures
         if: steps.build.outputs.failed != ''
