@@ -246,8 +246,14 @@ jobs:
             repo-add --sign --key ${{ secrets.GPG_KEY_ID }} mark-wells-dev.db.tar.gz *.pkg.tar.zst
             
             # Ensure signatures for legacy/symlink DB names exist
-            [ -f mark-wells-dev.db.tar.gz.sig ] && cp mark-wells-dev.db.tar.gz.sig mark-wells-dev.db.sig
-            [ -f mark-wells-dev.files.tar.gz.sig ] && cp mark-wells-dev.files.tar.gz.sig mark-wells-dev.files.sig
+            if [ -f mark-wells-dev.db.tar.gz.sig ]; then
+              rm -f mark-wells-dev.db.sig
+              cp mark-wells-dev.db.tar.gz.sig mark-wells-dev.db.sig
+            fi
+            if [ -f mark-wells-dev.files.tar.gz.sig ]; then
+              rm -f mark-wells-dev.files.sig
+              cp mark-wells-dev.files.tar.gz.sig mark-wells-dev.files.sig
+            fi
           fi
 
       - name: Fix DB Signatures
