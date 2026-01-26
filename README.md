@@ -19,15 +19,16 @@ Server = https://github.com/mark-wells-dev/pkgbuilds/releases/latest/download
 
 # Sync and install
 sudo pacman -Sy
-sudo pacman -S gemini-cli rpi-imager
+sudo pacman -S <package-name>
 ```
 
 ## Packages
 
-| Package    | Source   | Description                  |
-| ---------- | -------- | ---------------------------- |
-| gemini-cli | npm      | Google's Gemini AI CLI agent |
-| rpi-imager | AppImage | Raspberry Pi Imaging Utility |
+| Package    | Source   | Description                   |
+| ---------- | -------- | ----------------------------- |
+| gemini-cli | npm      | Google's Gemini AI CLI agent  |
+| rpi-imager | AppImage | Raspberry Pi Imaging Utility  |
+| virtctl    | Binary   | Kubernetes Virtualization CLI |
 
 ## How It Works
 
