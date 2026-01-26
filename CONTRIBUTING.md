@@ -11,7 +11,7 @@ These instructions assume you are using Arch Linux.
 To build a package exactly as it will be built in CI:
 
 ```bash
-cd <package-name>
+cd [package-name]
 makepkg -s
 ```
 
@@ -56,7 +56,7 @@ Since Arch Linux runs the latest Node.js versions, many packages may emit noisy 
    ```bash
    #!/bin/bash
    export NODE_OPTIONS="--no-deprecation"
-   exec /usr/lib/node_modules/ < package-name > /bin/ < entry-point > "$@"
+   exec /usr/lib/node_modules/[package-name]/bin/[entry-point] "$@"
    ```
 
 2. Update `PKGBUILD`:
@@ -68,8 +68,8 @@ Since Arch Linux runs the latest Node.js versions, many packages may emit noisy 
      # ... npm install ...
    
      # Replace symlink
-     rm "${pkgdir}/usr/bin/<binary-name>"
-     install -Dm755 "${srcdir}/wrapper.sh" "${pkgdir}/usr/bin/<binary-name>"
+     rm "${pkgdir}/usr/bin/[binary-name]"
+     install -Dm755 "${srcdir}/wrapper.sh" "${pkgdir}/usr/bin/[binary-name]"
    }
    ```
 
@@ -89,7 +89,7 @@ For applications requiring root access, use `pkexec` in the wrapper script (with
 You can test wrapper script changes directly on your system without rebuilding the entire package:
 
 ```bash
-sudo nano /usr/bin/<binary-name>
+sudo nano /usr/bin/[binary-name]
 # edit, test, then sync changes back to the PKGBUILD or wrapper file
 ```
 
@@ -99,7 +99,7 @@ Updates are managed by a custom script triggered via GitHub Actions (`.github/wo
 
 To add a package to the automated update tracker:
 
-1. Create a script in `scripts/packages/<pkgname>.sh`.
+1. Create a script in `scripts/packages/[pkgname].sh`.
 2. Use the `perform_update` function defined in `scripts/lib/common.sh`.
 
 Example `scripts/packages/gemini-cli.sh`:
