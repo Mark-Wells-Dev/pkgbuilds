@@ -11,9 +11,11 @@ license=('Apache-2.0')
 depends=('nodejs')
 makedepends=('npm')
 options=('!strip' '!debug' '!lto')
-source=("https://registry.npmjs.org/@google/gemini-cli/-/${pkgname}-${pkgver}.tgz")
+source=("https://registry.npmjs.org/@google/gemini-cli/-/${pkgname}-${pkgver}.tgz"
+    "gemini-wrapper.sh")
 noextract=("${pkgname}-${pkgver}.tgz")
-sha256sums=('5717c1b2930f6b35ed25e781cf96b83e83bc5350172e66dc226209a672bad512')
+sha512sums=('ab3de4ad3ed6d7e36c42bd7cb65dcabab173a665ceb8fdc08955acb9cf04159bd079bcc63c9e5304ff8f17bb7769de01046ca0420c3f38ba299d37487895992d'
+    '6874b34f459bdcf2b78f67447cdf734adb2cc5f2e37229198f1359f187bf799451f77f9aaafc5f08e48f4b98175694affa767abac15e170c2af903ad9489f525')
 
 package() {
     npm install -g --prefix "${pkgdir}/usr" \
@@ -38,4 +40,10 @@ package() {
         ln -s "../../../lib/node_modules/@google/gemini-cli/LICENSE" \
             "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
     fi
+
+    # Replace symlink with wrapper to suppress punycode deprecation warnings (Node 21+)
+    if [ -L "${pkgdir}/usr/bin/gemini" ]; then
+        rm "${pkgdir}/usr/bin/gemini"
+    fi
+    install -Dm755 "${srcdir}/gemini-wrapper.sh" "${pkgdir}/usr/bin/gemini"
 }
