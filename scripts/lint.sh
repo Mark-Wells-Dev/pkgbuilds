@@ -21,9 +21,21 @@ for pkg in $ALL_PACKAGES; do
 
     # 2. Source verification (checksum check)
     echo "Verifying sources for $pkg..."
-    if ! (cd "$pkg" && makepkg --verifysource); then
-        echo "::error file=$pkg/PKGBUILD::Source verification failed"
-        FAILURE=1
+    # makepkg cannot run as root. In CI, we use the builder user.
+    if [ "$(id -u)" -eq 0 ]; then
+        if id -u builder > /dev/null 2>&1; then
+            if ! su builder -c "cd $pkg && makepkg --verifysource"; then
+                echo "::error file=$pkg/PKGBUILD::Source verification failed"
+                FAILURE=1
+            fi
+        else
+            echo "::warning::Running as root and 'builder' user not found. Skipping source verification."
+        fi
+    else
+        if ! (cd "$pkg" && makepkg --verifysource); then
+            echo "::error file=$pkg/PKGBUILD::Source verification failed"
+            FAILURE=1
+        fi
     fi
 
     # 3. namcap check (if available)
