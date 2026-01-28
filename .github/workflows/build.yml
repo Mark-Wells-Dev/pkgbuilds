@@ -34,6 +34,9 @@ jobs:
       - name: Setup environment
         run: ./scripts/ci/setup.sh
 
+      - name: Lint PKGBUILDs
+        run: ./scripts/lint.sh
+
       - name: Prepare build matrix
         id: scan
         env:
