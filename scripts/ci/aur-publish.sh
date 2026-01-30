@@ -21,6 +21,7 @@ EOF
 # Configure git
 git config --global user.name "Mark Wells"
 git config --global user.email "contact@markwells.dev"
+git config --global init.defaultBranch master
 
 # Find packages with .aur marker
 AUR_PACKAGES=$(find pkgs -maxdepth 2 -name '.aur' -printf '%h\n' | sort)
