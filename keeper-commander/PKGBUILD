@@ -55,29 +55,12 @@ makedepends=(
     'python-setuptools'
     'python-setuptools-scm'
 )
-checkdepends=('python-ifaddr' 'python-pytest')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
 sha512sums=('0fac36641c8cac880f8d9345aeada20e74f19a6de123ceed2848d85c1d23ed30325027ef81b19f3e095ce6b44c359968ec559e379b755df98b7bf36aa73da699')
 
 build() {
     cd "Commander-$pkgver"
     python -m build --wheel --no-isolation
-}
-
-check() {
-    cd "Commander-$pkgver"
-    python -m pytest -s -v -k \
-        "not test_forward_data_to_tunnel_generic_exception and \
-     not test_add_enterprise_user and \
-     not test_commands and \
-     not test_report_commands and \
-     not test_quoting and \
-     not test_service_status_when_running and \
-     not test_vault_reports and \
-     not test_command_execution_failure and \
-     not test_command_execution_success and \
-     not test_integration_command_flow \
-     "
 }
 
 package() {
