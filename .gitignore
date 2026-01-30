@@ -6,6 +6,14 @@
 src/
 pkg/
 
+# Downloaded sources (makepkg)
+pkgs/**/*.tar.gz
+pkgs/**/*.tgz
+pkgs/**/*.AppImage
+pkgs/**/*.policy
+pkgs/**/*-linux-amd64
+pkgs/**/*-linux-x86_64
+
 # Repo database
 *.db
 *.db.tar.gz
