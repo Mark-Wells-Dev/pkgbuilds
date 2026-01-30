@@ -23,11 +23,18 @@ echo "==> Building package: $PKG"
 # -s: Install deps, --noconfirm: No prompts
 
 # Step 1: Install dependencies (Repo + AUR) using yay
-# We use 'yay -S --needed .' to install deps defined in PKGBUILD
 echo "==> Resolving dependencies with yay..."
-if ! su builder -c "cd $PKG && yay -S --noconfirm --asdeps --needed ."; then
-    echo "::error::Failed to install dependencies for $PKG"
-    exit 1
+# Extract dependencies from PKGBUILD using makepkg --printsrcinfo
+DEPS=$(su builder -c "cd $PKG && makepkg --printsrcinfo" | awk '/^\s+(make)?depends\s+=\s+/{ print $3 }' | tr '\n' ' ')
+
+if [ -z "$DEPS" ]; then
+    echo "::warning::No dependencies found or failed to parse."
+else
+    echo "==> Installing: $DEPS"
+    if ! su builder -c "yay -S --noconfirm --asdeps --needed $DEPS"; then
+        echo "::error::Failed to install dependencies for $PKG"
+        exit 1
+    fi
 fi
 
 # Step 2: Build the package (deps are now installed)
