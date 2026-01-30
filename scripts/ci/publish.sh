@@ -6,6 +6,14 @@ set -e
 
 echo "==> Finalizing repository..."
 
+# Configure GPG for non-interactive use
+export GPG_TTY=$(tty 2> /dev/null || echo /dev/tty)
+mkdir -p ~/.gnupg
+chmod 700 ~/.gnupg
+echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+gpgconf --kill gpg-agent 2> /dev/null || true
+
 # Ensure GPG key is imported (handled by YAML step usually, but check)
 if ! gpg --list-secret-keys > /dev/null 2>&1; then
     echo "Error: GPG key not found. Ensure it was imported."
@@ -51,7 +59,7 @@ for pkg in *.pkg.tar.zst; do
     # Detach sign if sig doesn't exist
     if [ ! -f "${pkg}.sig" ]; then
         echo "Signing $pkg..."
-        gpg --batch --yes --detach-sign --no-armor "$pkg"
+        gpg --batch --yes --pinentry-mode loopback --detach-sign --no-armor "$pkg"
     fi
 done
 
