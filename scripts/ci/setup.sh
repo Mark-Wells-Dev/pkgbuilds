@@ -45,8 +45,19 @@ echo "==> Setting up local package repository..."
 mkdir -p /var/local-repo
 chown builder:builder /var/local-repo
 
-# Add local repo to pacman.conf with highest priority (before other repos)
-sed -i '/^\[core\]/i [local-repo]\nSigLevel = Optional TrustAll\nServer = file:///var/local-repo\n' /etc/pacman.conf
+# Add local repo and mark-wells-dev repo to pacman.conf (before other repos)
+# local-repo: for packages built in current CI run
+# mark-wells-dev: for packages from previous CI runs (published to GitHub releases)
+cat >> /etc/pacman.conf << 'EOF'
+
+[local-repo]
+SigLevel = Optional TrustAll
+Server = file:///var/local-repo
+
+[mark-wells-dev]
+SigLevel = Optional TrustAll
+Server = https://github.com/Mark-Wells-Dev/pkgbuilds/releases/download/latest
+EOF
 
 # Initialize empty repo database with proper symlinks
 # repo-add needs at least one package, so we create empty db manually
