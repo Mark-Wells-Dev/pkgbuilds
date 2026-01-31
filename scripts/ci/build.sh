@@ -54,7 +54,16 @@ for f in "$PKG"/*.pkg.tar.zst; do
     fi
 done
 
-# 2. Smoke Test
+# 2. Add to local repo (for inter-package dependencies)
+echo "==> Adding package to local repository..."
+for pkg_file in "$PKG"/*.pkg.tar.zst; do
+    [ -e "$pkg_file" ] || continue
+    cp "$pkg_file" /var/local-repo/
+    su builder -c "repo-add /var/local-repo/local-repo.db.tar.gz /var/local-repo/$(basename "$pkg_file")"
+done
+pacman -Sy # Refresh package database
+
+# 3. Smoke Test
 # Look for check.sh in the package directory
 if [ -f "$PKG/check.sh" ]; then
     echo "==> Running smoke test ($PKG/check.sh)..."

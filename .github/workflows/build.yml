@@ -73,28 +73,29 @@ jobs:
     if: ${{ always() && needs.prepare.result == 'success' && fromJson(needs.prepare.outputs.matrix)[0] != null }}
     runs-on: ubuntu-latest
     container: archlinux:base-devel
-    strategy:
-      fail-fast: false
-      matrix:
-        package: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup environment
         run: ./scripts/ci/setup.sh
 
-      - name: Get package name
-        id: pkg
-        run: echo "name=$(basename ${{ matrix.package }})" >> $GITHUB_OUTPUT
+      - name: Build packages sequentially
+        env:
+          PACKAGES: ${{ needs.prepare.outputs.matrix }}
+        run: |
+          # Build packages one by one, each gets added to local repo
+          # so subsequent packages can depend on earlier ones
+          for pkg in $(echo "$PACKAGES" | jq -r '.[]'); do
+            echo "::group::Building $pkg"
+            ./scripts/ci/build.sh "$pkg"
+            echo "::endgroup::"
+          done
 
-      - name: Build and Test ${{ matrix.package }}
-        run: ./scripts/ci/build.sh ${{ matrix.package }}
-
-      - name: Upload Package Artifact
+      - name: Upload Package Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pkg-${{ steps.pkg.outputs.name }}
-          path: ${{ matrix.package }}/*.pkg.tar.zst
+          name: packages
+          path: pkgs/*/*.pkg.tar.zst
           compression-level: 0
 
   publish:
@@ -131,9 +132,8 @@ jobs:
         if: needs.build.result == 'success'
         uses: actions/download-artifact@v4
         with:
-          pattern: pkg-*
+          name: packages
           path: repo-artifacts
-          merge-multiple: true
 
       - name: Finalize Repository
         env:

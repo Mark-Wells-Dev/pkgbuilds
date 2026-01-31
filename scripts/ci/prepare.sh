@@ -110,7 +110,7 @@ else
     done
 fi
 
-# 4. Detect Removed Packages
+# 4. Detect removed packages
 while read -r line; do
     [ -z "$line" ] && continue
     db_name=$(echo "$line" | cut -d' ' -f1)
@@ -129,7 +129,77 @@ while read -r line; do
     fi
 done < db_versions.txt
 
-# 5. Output Results to GitHub Actions
+# 5. Sort packages by dependencies (base packages first)
+# This ensures packages are built in the right order for the local repo
+sort_by_dependencies() {
+    local packages=("$@")
+    local sorted=()
+    local remaining=("${packages[@]}")
+
+    # Get all package names from our local packages
+    declare -A local_pkg_names
+    for pkg in "${packages[@]}"; do
+        local name
+        name=$(su builder -c "cd $pkg && makepkg --printsrcinfo" 2> /dev/null | grep -P '^\t?pkgname =' | cut -d= -f2 | xargs)
+        local_pkg_names["$name"]="$pkg"
+    done
+
+    # Simple topological sort: packages with no local deps first
+    while [ ${#remaining[@]} -gt 0 ]; do
+        local made_progress=false
+        local still_remaining=()
+
+        for pkg in "${remaining[@]}"; do
+            local deps
+            deps=$(su builder -c "cd $pkg && makepkg --printsrcinfo" 2> /dev/null | awk '/^\s+depends\s+=\s+/{ print $3 }')
+
+            local has_unsorted_dep=false
+            for dep in $deps; do
+                # Strip version constraints
+                dep_name="${dep%%[<>=]*}"
+                # Check if this dep is a local package that hasn't been sorted yet
+                if [ -n "${local_pkg_names[$dep_name]}" ]; then
+                    local dep_pkg="${local_pkg_names[$dep_name]}"
+                    # Check if dep_pkg is still in remaining
+                    for r in "${remaining[@]}"; do
+                        if [ "$r" = "$dep_pkg" ] && [ "$r" != "$pkg" ]; then
+                            has_unsorted_dep=true
+                            break
+                        fi
+                    done
+                fi
+                [ "$has_unsorted_dep" = true ] && break
+            done
+
+            if [ "$has_unsorted_dep" = false ]; then
+                sorted+=("$pkg")
+                made_progress=true
+            else
+                still_remaining+=("$pkg")
+            fi
+        done
+
+        remaining=("${still_remaining[@]}")
+
+        # Prevent infinite loop (circular deps)
+        if [ "$made_progress" = false ] && [ ${#remaining[@]} -gt 0 ]; then
+            echo "::warning::Circular dependency detected, adding remaining packages unsorted"
+            sorted+=("${remaining[@]}")
+            break
+        fi
+    done
+
+    printf '%s\n' "${sorted[@]}"
+}
+
+if [ ${#PACKAGES_TO_BUILD[@]} -gt 0 ]; then
+    echo "==> Sorting packages by dependencies..."
+    mapfile -t SORTED_PACKAGES < <(sort_by_dependencies "${PACKAGES_TO_BUILD[@]}")
+    PACKAGES_TO_BUILD=("${SORTED_PACKAGES[@]}")
+    echo "Build order: ${PACKAGES_TO_BUILD[*]}"
+fi
+
+# 6. Output results to GitHub Actions
 # Convert arrays to JSON safely
 if [ ${#PACKAGES_TO_BUILD[@]} -eq 0 ]; then
     matrix_json="[]"

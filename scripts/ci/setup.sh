@@ -40,4 +40,15 @@ if [ -n "$GITHUB_OUTPUT" ]; then
     chmod 666 "$GITHUB_OUTPUT"
 fi
 
+# 4. Create local repository for inter-package dependencies
+echo "==> Setting up local package repository..."
+mkdir -p /var/local-repo
+chown builder:builder /var/local-repo
+
+# Add local repo to pacman.conf with highest priority (before other repos)
+sed -i '/^\[core\]/i [local-repo]\nSigLevel = Optional TrustAll\nServer = file:///var/local-repo\n' /etc/pacman.conf
+
+# Initialize empty repo database
+su builder -c "repo-add /var/local-repo/local-repo.db.tar.gz"
+
 echo "==> Setup complete."
