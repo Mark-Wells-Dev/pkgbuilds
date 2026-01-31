@@ -48,3 +48,56 @@ perform_update() {
     git add "$pkgbuild"
     git commit -m "chore($pkg_name): update to $new_ver"
 }
+
+# Version check helpers for common package sources
+
+check_pypi() {
+    local pkg_name="$1"
+    local pypi_name="${2:-$pkg_name}"
+    echo "Checking $pkg_name via PyPI..."
+
+    local latest_ver
+    latest_ver=$(curl -s "https://pypi.org/pypi/${pypi_name}/json" | jq -r .info.version)
+
+    if [ -n "$latest_ver" ] && [ "$latest_ver" != "null" ]; then
+        perform_update "$pkg_name" "$latest_ver"
+    else
+        echo "Failed to check version for $pkg_name"
+    fi
+}
+
+check_npm() {
+    local pkg_name="$1"
+    local npm_name="${2:-$pkg_name}"
+    echo "Checking $pkg_name via npm..."
+
+    # URL-encode scoped package names (@scope/pkg -> @scope%2Fpkg)
+    local encoded_name="${npm_name/@/%40}"
+    encoded_name="${encoded_name/\//%2F}"
+
+    local latest_ver
+    latest_ver=$(curl -s "https://registry.npmjs.org/${encoded_name}/latest" | jq -r .version)
+
+    if [ -n "$latest_ver" ] && [ "$latest_ver" != "null" ]; then
+        perform_update "$pkg_name" "$latest_ver"
+    else
+        echo "Failed to check version for $pkg_name"
+    fi
+}
+
+check_github_release() {
+    local pkg_name="$1"
+    local repo="$2"
+    local strip_v="${3:-true}"
+    echo "Checking $pkg_name via GitHub releases..."
+
+    local latest_ver
+    latest_ver=$(curl -s "https://api.github.com/repos/${repo}/releases/latest" | jq -r .tag_name)
+
+    if [ -n "$latest_ver" ] && [ "$latest_ver" != "null" ]; then
+        [ "$strip_v" = "true" ] && latest_ver="${latest_ver#v}"
+        perform_update "$pkg_name" "$latest_ver"
+    else
+        echo "Failed to check version for $pkg_name"
+    fi
+}
