@@ -29,8 +29,9 @@ mkdir -p repo
 # Let's assume they are flattened into 'repo-artifacts/' by the YAML download step.
 
 # Move new packages to repo/
+# Artifacts may be in subdirectories (e.g., repo-artifacts/keeper-commander/)
 if [ -d "repo-artifacts" ]; then
-    mv repo-artifacts/*.pkg.tar.zst repo/ 2> /dev/null || true
+    find repo-artifacts -name "*.pkg.tar.zst" -exec mv {} repo/ \; 2> /dev/null || true
 fi
 
 # 2. Handle Removals
