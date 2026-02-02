@@ -43,6 +43,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FORCE_REBUILD: ${{ inputs.force_rebuild }}
           FIX_SIGNATURES: ${{ inputs.fix_signatures }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: ./scripts/ci/prepare.sh
 
       - name: Upload Repository DB

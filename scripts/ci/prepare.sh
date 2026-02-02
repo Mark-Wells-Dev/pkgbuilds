@@ -19,8 +19,11 @@ fi
 mkdir -p repo
 
 # Check for manual publish flag in commit message
-if git log -1 --pretty=%B | grep -qi "\[publish\]"; then
+if echo "$COMMIT_MESSAGE" | grep -qi "\[publish\]"; then
     echo "Manual publish requested via commit message."
+    MANUAL_PUBLISH=true
+elif git log -1 --pretty=%B 2> /dev/null | grep -qi "\[publish\]"; then
+    echo "Manual publish requested via git log."
     MANUAL_PUBLISH=true
 fi
 
