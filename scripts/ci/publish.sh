@@ -41,6 +41,8 @@ if [ -n "$REMOVED_JSON" ] && [ "$REMOVED_JSON" != "[]" ]; then
 
     # Run repo-remove
     if [ -f "repo/${REPO_NAME}.db.tar.gz" ]; then
+        # Use su builder if needed, but here we are usually root in container
+        # repo-remove handles signing if --sign is passed
         repo-remove --sign --key "$GPG_KEY_ID" "repo/${REPO_NAME}.db.tar.gz" $REMOVED_LIST
     else
         echo "Warning: Database not found, cannot remove packages."
@@ -65,13 +67,19 @@ for pkg in *.pkg.tar.zst; do
 done
 
 # Update Database
-# Even if no new packages were built, we want to ensure the DB is updated and signed
-# particularly during migration or if removals occurred.
+# We only want to run repo-add if there's a DB to update or new packages to add.
 if [ -f "${REPO_NAME}.db.tar.gz" ] || ls *.pkg.tar.zst 1> /dev/null 2>&1; then
     echo "Updating database..."
-    # We use the renamed files (with dots), repo-add handles them fine.
+
+    # Collect existing packages if any
+    PKGS_TO_ADD=""
+    if ls *.pkg.tar.zst 1> /dev/null 2>&1; then
+        PKGS_TO_ADD="*.pkg.tar.zst"
+    fi
+
     # repo-add will create it if it doesn't exist.
-    repo-add --sign --key "$GPG_KEY_ID" "${REPO_NAME}.db.tar.gz" *.pkg.tar.zst
+    # If PKGS_TO_ADD is empty, it just re-signs/refreshes the DB
+    repo-add --sign --key "$GPG_KEY_ID" "${REPO_NAME}.db.tar.gz" $PKGS_TO_ADD
 
     # Ensure symlinks exist for pacman's default expectations
     ln -sf "${REPO_NAME}.db.tar.gz" "${REPO_NAME}.db"
