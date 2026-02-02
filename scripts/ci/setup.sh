@@ -44,6 +44,9 @@ if [ -n "$GITHUB_OUTPUT" ]; then
     chmod 666 "$GITHUB_OUTPUT"
 fi
 
+# Mark workspace as safe for git (needed for prepare.sh to read commit messages)
+git config --global --add safe.directory "$(pwd)"
+
 # 4. Create local repository for inter-package dependencies
 echo "==> Setting up local package repository..."
 mkdir -p /var/local-repo
@@ -90,7 +93,6 @@ ln -sf local-repo.files.tar.gz /var/local-repo/local-repo.files
 chown -R builder:builder /var/local-repo
 
 # Sync package databases
-# We allow this to fail because during migration/initial setup the DB might be missing
 pacman -Sy || echo "Warning: Failed to synchronize some databases. Proceeding anyway."
 
 echo "==> Setup complete."
