@@ -3,6 +3,10 @@ set -e
 
 # setup.sh: Prepares the Arch Linux environment for CI jobs.
 
+# Source common variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../lib/common.sh"
+
 echo "==> Setting up build environment..."
 
 # 1. Update system and install base dependencies
@@ -54,27 +58,26 @@ Server = file:///var/local-repo
 EOF
 
 # Determine which remote repo to use (fallback to old name for migration)
-REPO_NAME="markwells-dev"
-REPO_URL="https://github.com/MarkWells-Dev/pkgbuilds/releases/download/latest/${REPO_NAME}.db.tar.gz"
+ACTIVE_REPO_NAME="${REPO_NAME}"
+REPO_URL="https://github.com/${GITHUB_ORG}/${GITHUB_REPO}/releases/download/latest/${REPO_NAME}.db.tar.gz"
 
 if ! curl -sL --output /dev/null --silent --fail "$REPO_URL"; then
-    OLD_REPO_NAME="mark-wells-dev"
-    OLD_REPO_URL="https://github.com/MarkWells-Dev/pkgbuilds/releases/download/latest/${OLD_REPO_NAME}.db.tar.gz"
+    OLD_REPO_URL="https://github.com/${GITHUB_ORG}/${GITHUB_REPO}/releases/download/latest/${OLD_REPO_NAME}.db.tar.gz"
     if curl -sL --output /dev/null --silent --fail "$OLD_REPO_URL"; then
-        echo "==> markwells-dev not found, falling back to $OLD_REPO_NAME for migration"
-        REPO_NAME=$OLD_REPO_NAME
+        echo "==> ${REPO_NAME} not found, falling back to ${OLD_REPO_NAME} for migration"
+        ACTIVE_REPO_NAME="${OLD_REPO_NAME}"
     else
-        REPO_NAME=""
+        ACTIVE_REPO_NAME=""
     fi
 fi
 
-if [ -n "$REPO_NAME" ]; then
-    echo "==> Adding $REPO_NAME repository to pacman.conf"
+if [ -n "$ACTIVE_REPO_NAME" ]; then
+    echo "==> Adding ${ACTIVE_REPO_NAME} repository to pacman.conf"
     cat >> /etc/pacman.conf << EOF
 
-[$REPO_NAME]
+[${ACTIVE_REPO_NAME}]
 SigLevel = Never
-Server = https://github.com/MarkWells-Dev/pkgbuilds/releases/download/latest
+Server = https://github.com/${GITHUB_ORG}/${GITHUB_REPO}/releases/download/latest
 EOF
 fi
 

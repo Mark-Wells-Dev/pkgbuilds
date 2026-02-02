@@ -4,6 +4,10 @@ set -e
 # prepare.sh: Determines which packages need building.
 # Outputs: 'matrix', 'removed', 'run_publish', 'has_work' to $GITHUB_OUTPUT
 
+# Source common variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../lib/common.sh"
+
 echo "==> Preparing build matrix..."
 
 # Ensure we have the builder user (setup.sh should have run)
@@ -24,14 +28,14 @@ fi
 echo "==> Downloading repository database..."
 
 MIGRATED=false
-if ! gh release download latest --repo "$GITHUB_REPOSITORY" --pattern 'markwells-dev.db.tar.gz' --dir repo 2> /dev/null; then
-    echo "No new database found. Checking for old 'mark-wells-dev' database for migration..."
-    if gh release download latest --repo "$GITHUB_REPOSITORY" --pattern 'mark-wells-dev.db.tar.gz' --dir repo 2> /dev/null; then
-        echo "Found old database. Migrating to 'markwells-dev'..."
-        mv repo/mark-wells-dev.db.tar.gz repo/markwells-dev.db.tar.gz
+if ! gh release download latest --repo "$GITHUB_REPOSITORY" --pattern "${REPO_NAME}.db.tar.gz" --dir repo 2> /dev/null; then
+    echo "No new database found. Checking for old '${OLD_REPO_NAME}' database for migration..."
+    if gh release download latest --repo "$GITHUB_REPOSITORY" --pattern "${OLD_REPO_NAME}.db.tar.gz" --dir repo 2> /dev/null; then
+        echo "Found old database. Migrating to '${REPO_NAME}'..."
+        mv "repo/${OLD_REPO_NAME}.db.tar.gz" "repo/${REPO_NAME}.db.tar.gz"
         # Also try to get the old files db if it exists
-        if gh release download latest --repo "$GITHUB_REPOSITORY" --pattern 'mark-wells-dev.files.tar.gz' --dir repo 2> /dev/null; then
-            mv repo/mark-wells-dev.files.tar.gz repo/markwells-dev.files.tar.gz
+        if gh release download latest --repo "$GITHUB_REPOSITORY" --pattern "${OLD_REPO_NAME}.files.tar.gz" --dir repo 2> /dev/null; then
+            mv "repo/${OLD_REPO_NAME}.files.tar.gz" "repo/${REPO_NAME}.files.tar.gz"
         fi
 
         # To migrate successfully, we need the actual package files for repo-add
@@ -43,7 +47,7 @@ if ! gh release download latest --repo "$GITHUB_REPOSITORY" --pattern 'markwells
     fi
 else
     # Also try to get the files db
-    gh release download latest --repo "$GITHUB_REPOSITORY" --pattern 'markwells-dev.files.tar.gz' --dir repo 2> /dev/null || true
+    gh release download latest --repo "$GITHUB_REPOSITORY" --pattern "${REPO_NAME}.files.tar.gz" --dir repo 2> /dev/null || true
 
     # If manual publish requested, download packages so they can be re-indexed/signed
     if [ "$MANUAL_PUBLISH" = "true" ]; then
@@ -54,8 +58,8 @@ fi
 
 # Extract DB to read versions
 mkdir -p repo/db_content
-if [ -f repo/markwells-dev.db.tar.gz ]; then
-    tar -xf repo/markwells-dev.db.tar.gz -C repo/db_content
+if [ -f "repo/${REPO_NAME}.db.tar.gz" ]; then
+    tar -xf "repo/${REPO_NAME}.db.tar.gz" -C repo/db_content
 fi
 
 # 2. Map Current DB Versions

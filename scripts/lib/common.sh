@@ -2,6 +2,10 @@
 
 # Configuration
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_NAME="markwells-dev"
+OLD_REPO_NAME="mark-wells-dev"
+GITHUB_ORG="MarkWells-Dev"
+GITHUB_REPO="pkgbuilds"
 
 get_local_version() {
     local pkgbuild="$1"
