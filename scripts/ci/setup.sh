@@ -82,7 +82,6 @@ EOF
 fi
 
 # Initialize empty repo database with proper symlinks
-# repo-add needs at least one package, so we create empty db manually
 touch /var/local-repo/.empty
 tar -czf /var/local-repo/local-repo.db.tar.gz -T /dev/null
 tar -czf /var/local-repo/local-repo.files.tar.gz -T /dev/null
@@ -90,7 +89,8 @@ ln -sf local-repo.db.tar.gz /var/local-repo/local-repo.db
 ln -sf local-repo.files.tar.gz /var/local-repo/local-repo.files
 chown -R builder:builder /var/local-repo
 
-# Sync package databases (including our empty local-repo)
-pacman -Sy
+# Sync package databases
+# We allow this to fail because during migration/initial setup the DB might be missing
+pacman -Sy || echo "Warning: Failed to synchronize some databases. Proceeding anyway."
 
 echo "==> Setup complete."

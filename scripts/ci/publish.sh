@@ -27,7 +27,6 @@ fi
 mkdir -p repo
 
 # 1. Gather Artifacts
-# Let's rely on an environment variable REMOVED_JSON
 if [ -d "repo-artifacts" ]; then
     find repo-artifacts -name "*.pkg.tar.zst" -exec mv {} repo/ \; 2> /dev/null || true
 fi
@@ -38,7 +37,6 @@ if [ -n "$REMOVED_JSON" ] && [ "$REMOVED_JSON" != "[]" ]; then
     REMOVED_LIST=$(echo "$REMOVED_JSON" | jq -r '.[]')
 
     if [ -f "repo/${REPO_NAME}.db.tar.gz" ]; then
-        # repo-remove doesn't always sign correctly in CI, we'll re-sign at the end
         repo-remove "repo/${REPO_NAME}.db.tar.gz" $REMOVED_LIST
     else
         echo "Warning: Database not found, cannot remove packages."
@@ -85,11 +83,11 @@ if [ -f "${REPO_NAME}.db.tar.gz" ] || ls *.pkg.tar.zst 1> /dev/null 2>&1; then
         fi
     done
 
-    # Ensure symlinks exist for pacman's default expectations
-    ln -sf "${REPO_NAME}.db.tar.gz" "${REPO_NAME}.db"
-    ln -sf "${REPO_NAME}.files.tar.gz" "${REPO_NAME}.files"
+    # Ensure files exist for pacman's default expectations (no symlinks for GitHub Releases)
+    cp -f "${REPO_NAME}.db.tar.gz" "${REPO_NAME}.db"
+    cp -f "${REPO_NAME}.files.tar.gz" "${REPO_NAME}.files"
 
-    # Sync signatures to the symlink names
+    # Sync signatures to the copied names
     [ -f "${REPO_NAME}.db.tar.gz.sig" ] && cp -f "${REPO_NAME}.db.tar.gz.sig" "${REPO_NAME}.db.sig"
     [ -f "${REPO_NAME}.files.tar.gz.sig" ] && cp -f "${REPO_NAME}.files.tar.gz.sig" "${REPO_NAME}.files.sig"
 fi
