@@ -43,7 +43,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FORCE_REBUILD: ${{ inputs.force_rebuild }}
           FIX_SIGNATURES: ${{ inputs.fix_signatures }}
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.event.workflow_run.head_commit.message }}
         run: ./scripts/ci/prepare.sh
 
       - name: Upload Repository DB
@@ -107,7 +107,7 @@ jobs:
       needs.prepare.result == 'success' && 
       (needs.build.result == 'success' || needs.build.result == 'skipped') && 
       needs.prepare.outputs.run_publish == 'true' &&
-      github.event_name == 'push' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
       github.ref == 'refs/heads/main'
     runs-on: homeserver-pool
     container: archlinux:base-devel
