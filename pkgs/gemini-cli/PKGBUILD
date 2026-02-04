@@ -1,7 +1,7 @@
 # Maintainer: Mark Wells <contact at markwells dot dev>
 # Packaged from npm
 pkgname=gemini-cli
-pkgver=0.26.0
+pkgver=0.27.0
 pkgrel=1
 epoch=1
 pkgdesc="Open-source AI agent that brings the power of Gemini directly into your terminal"
@@ -14,7 +14,7 @@ options=('!strip' '!debug' '!lto')
 source=("https://registry.npmjs.org/@google/gemini-cli/-/${pkgname}-${pkgver}.tgz"
     "gemini-wrapper.sh")
 noextract=("${pkgname}-${pkgver}.tgz")
-sha512sums=('57762e780cfeef3a8d2e8f0a58430a42408bbf2edda7649f617bead750834080b788f6e1d4d1c48d1f9a9db538148fec2fd79c620731a070222ea6d417209134'
+sha512sums=('55c3cd574eacaae404aa5ec5c29cc01f1601a61c5e007f76b0ebe7f1ec81fdbe2769aa788876282cab4dc93fcdb18de5025fdf0c40339829e6a8d5e86357f70a' 'cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e')
     '6874b34f459bdcf2b78f67447cdf734adb2cc5f2e37229198f1359f187bf799451f77f9aaafc5f08e48f4b98175694affa767abac15e170c2af903ad9489f525')
 
 package() {
