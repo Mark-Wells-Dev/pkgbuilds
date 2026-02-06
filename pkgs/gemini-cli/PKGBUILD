@@ -26,8 +26,8 @@ package() {
     find "${pkgdir}/usr" -type d -exec chmod 755 {} +
 
     # Clean npm metadata from package.json files
-    find "${pkgdir}" -type f -name package.json -print0 \
-        | xargs -0 sed -i -e '/_where/d' -e '/_args/d' -e '/_from/d' -e '/_resolved/d'
+    find "${pkgdir}" -type f -name package.json -print0 |
+        xargs -0 sed -i -e '/_where/d' -e '/_args/d' -e '/_from/d' -e '/_resolved/d'
 
     # Remove build artifacts
     find "${pkgdir}" -name config.gypi -delete
