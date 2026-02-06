@@ -8,6 +8,31 @@ repos:
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: detect-private-key
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: mixed-line-ending
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.0
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: forbid-checksum-skip
+        name: Forbid Checksum Skip
+        entry: grep -E "(sha256|sha512)sums=.*SKIP"
+        language: pygrep
+        files: ^pkgs/.*PKGBUILD$
+        description: Ensure no checksums are skipped for security.
+
+      - id: enforce-https-sources
+        name: Enforce HTTPS Sources
+        entry: grep -E "source=.*http://"
+        language: pygrep
+        files: ^pkgs/.*PKGBUILD$
+        description: Ensure all sources use HTTPS for integrity.
 
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v3.1.0
@@ -34,14 +59,14 @@ repos:
         types: [shell]
         files: (^scripts/.*\.sh$|.*\.sh$)
         exclude: ^pkgs/.*PKGBUILD$
-        args: ["--severity=warning"]
+        args: ['--severity=warning']
 
       - id: shellcheck-pkgbuild
         name: ShellCheck (PKGBUILD)
         entry: shellcheck
         language: system
         files: ^pkgs/.*PKGBUILD$
-        args: ["--shell=bash", "--exclude=SC2034,SC2148,SC2154,SC2164"]
+        args: ['--shell=bash', '--exclude=SC2034,SC2148,SC2154,SC2164']
 
       - id: bash-syntax-check
         name: Bash Syntax Check
